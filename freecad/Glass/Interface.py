@@ -2,66 +2,67 @@
 # SPDX-FileCopyrightText: 2018 Triplus
 # SPDX-FileNotice: Part of the Glass addon.
 
-"""Glass module for FreeCAD - Gui."""
+from FreeCAD import Gui
+from PySide6 import QtWidgets , QtCore , QtGui
 
+from .Preferences import (
+    getMainPreferences ,
+    getTreePreferences ,
+    getViewPreferences ,
+    getOwnPreferences
+)
 
-import FreeCADGui as Gui
-import FreeCAD
-from PySide import QtGui
-from PySide import QtCore
-
+timer : QtCore.QTimer
 mode = 0
-wid = QtGui.QWidget()
-mw = Gui.getMainWindow()
-p = FreeCAD.ParamGet("User parameter:BaseApp/Glass")
+wid = QtWidgets.QWidget()
+window = Gui.getMainWindow()
 
+
+preferences = getOwnPreferences()
 
 try:
-    mw.setDockOptions(mw.dockOptions() | mw.GroupedDragging)
+    window.setDockOptions(window.dockOptions() | window.GroupedDragging)
 except AttributeError:
     pass
 
 
 def firstRun():
-    """Setup defaults on the first run."""
-    pTree = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/DockWindows/TreeView")
+
+    pTree = getTreePreferences()
     pTree.SetBool("Enabled", True)
 
-    pStyle = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/MainWindow")
+    pStyle = getMainPreferences()
     pStyle.SetString("StyleSheet", "Dark-blue.qss")
 
-    pView = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/View")
+    pView = getViewPreferences()
     pView.SetUnsigned("BackgroundColor2", 1852731135)
     pView.SetUnsigned("BackgroundColor3", 2829625599)
     pView.SetUnsigned("BackgroundColor4", 1852731135)
 
 
 def findDock():
-    """Find combo view widget."""
     global dock
-    dock = mw.findChild(QtGui.QDockWidget, "Tree view")
+    dock = window.findChild(QtWidgets.QDockWidget, "Tree view")
 
 
 def createActions():
-    """Create actions."""
-    a1 = QtGui.QAction(mw)
-    a1.setParent(mw)
+    a1 = QtGui.QAction(window)
+    a1.setParent(window)
     a1.setText("Glass toggle dock mode")
     a1.setObjectName("GlassToggleMode")
     a1.setShortcut(QtGui.QKeySequence("Q, 1"))
     a1.triggered.connect(setMode)
-    mw.addAction(a1)
-    a2 = QtGui.QAction(mw)
-    a2.setParent(mw)
+    window.addAction(a1)
+    a2 = QtGui.QAction(window)
+    a2.setParent(window)
     a2.setText("Glass toggle dock visibility")
     a2.setObjectName("GlassToggleVisibility")
     a2.setShortcut(QtGui.QKeySequence("Q, 2"))
     a2.triggered.connect(setVisibility)
-    mw.addAction(a2)
+    window.addAction(a2)
 
 
 def applyGlass(boolean, widget):
-    """Apply or remove glass."""
     try:
         if boolean:
             widget.setWindowFlags(QtCore.Qt.FramelessWindowHint)
@@ -122,7 +123,6 @@ def applyGlass(boolean, widget):
 
 
 def widgetList(boolean):
-    """List of child widgets."""
     children = []
     children.append(dock)
 
@@ -141,9 +141,8 @@ def widgetList(boolean):
 
 
 def setMode():
-    """Set dock or overlay widget mode."""
     global mode
-    mdi = mw.findChild(QtGui.QMdiArea)
+    mdi = window.findChild(QtGui.QMdiArea)
 
     if mode == 0:
         dock.setParent(mdi)
@@ -153,9 +152,9 @@ def setMode():
         widgetList(True)
         mode = 1
     else:
-        dock.setParent(mw)
+        dock.setParent(window)
         dock.setTitleBarWidget(None)
-        mw.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock)
+        window.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock)
         dock.show()
         widgetList(False)
         mode = 0
@@ -164,13 +163,14 @@ def setMode():
 
 
 def setVisibility():
-    """Toggle visibility."""
     dock.toggleViewAction().trigger()
 
 
 def onResize():
-    """Resize dock."""
-    mdi = mw.findChild(QtGui.QMdiArea)
+    mdi = window.findChild(QtWidgets.QMdiArea)
+
+    if not mdi:
+        return
 
     if mode == 1:
         x = 0
@@ -187,24 +187,23 @@ def onResize():
 
 
 def onStart():
-    """Start the glass module."""
-    if mw.property("eventLoop"):
+    if window.property("eventLoop"):
         timer.stop()
         timer.timeout.disconnect(onStart)
         findDock()
         createActions()
-        if p.GetBool("glassAuto", 1):
+        if preferences.GetBool("glassAuto", 1):
             setMode() # activate Glass mode
         timer.timeout.connect(onResize)
         timer.start(2000)
 
+def setup ():
 
-if p.GetBool("FirstRun", 1):
-    """Setup defaults on the first run."""
-    firstRun()
-    p.SetBool("FirstRun", 0)
+    if preferences.GetBool("FirstRun", 1):
+        firstRun()
+        preferences.SetBool("FirstRun", 0)
 
 
-timer = QtCore.QTimer()
-timer.timeout.connect(onStart)
-timer.start(500)
+    timer = QtCore.QTimer()
+    timer.timeout.connect(onStart)
+    timer.start(500)

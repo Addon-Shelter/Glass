@@ -2,13 +2,14 @@
 # SPDX-FileCopyrightText: 2018 Triplus
 # SPDX-FileNotice: Part of the Glass addon.
 
-"""Glass module for FreeCAD."""
+from FreeCAD import ParamGet
 
-from PySide import QtCore
-
-
-p = FreeCAD.ParamGet("User parameter:BaseApp/Glass")
+from .Preferences import getOwnPreferences
+from .Interface import setup
 
 
-if p.GetBool("Enabled", 1) and QtCore.qVersion() >= "5":
-    import GlassGui
+preferences = getOwnPreferences()
+
+
+if preferences.GetBool('Enabled',1):
+    setup()
