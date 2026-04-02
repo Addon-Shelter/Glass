@@ -5,12 +5,9 @@
 from FreeCAD import Gui
 from PySide6 import QtWidgets , QtCore , QtGui
 
-from .Preferences import (
-    getMainPreferences ,
-    getTreePreferences ,
-    getViewPreferences ,
-    getOwnPreferences
-)
+from .Preferences import getOwnPreferences
+from .Setup import runSetup
+
 
 timer : QtCore.QTimer
 mode = 0
@@ -24,20 +21,6 @@ try:
     window.setDockOptions(window.dockOptions() | window.GroupedDragging)
 except AttributeError:
     pass
-
-
-def firstRun():
-
-    pTree = getTreePreferences()
-    pTree.SetBool("Enabled", True)
-
-    pStyle = getMainPreferences()
-    pStyle.SetString("StyleSheet", "Dark-blue.qss")
-
-    pView = getViewPreferences()
-    pView.SetUnsigned("BackgroundColor2", 1852731135)
-    pView.SetUnsigned("BackgroundColor3", 2829625599)
-    pView.SetUnsigned("BackgroundColor4", 1852731135)
 
 
 def findDock():
@@ -197,10 +180,10 @@ def onStart():
         timer.timeout.connect(onResize)
         timer.start(2000)
 
-def setup ():
+def init ():
 
     if preferences.GetBool("FirstRun", 1):
-        firstRun()
+        runSetup()
         preferences.SetBool("FirstRun", 0)
 
 
