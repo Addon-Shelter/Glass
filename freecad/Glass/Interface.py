@@ -12,10 +12,10 @@ from .Setup import runSetup
 timer : QtCore.QTimer
 dock : QtWidgets.QDockWidget
 
-mode = 0
-title = QtWidgets.QWidget()
 window = Gui.getMainWindow()
+title = QtWidgets.QWidget()
 
+active = False
 
 preferences = getOwnPreferences()
 
@@ -39,144 +39,128 @@ def findDock ():
         dock = widget
 
 
-def createActions():
-    a1 = QtGui.QAction(window)
-    a1.setParent(window)
-    a1.setText("Glass toggle dock mode")
-    a1.setObjectName("GlassToggleMode")
-    a1.setShortcut(QtGui.QKeySequence("Q, 1"))
-    a1.triggered.connect(updateMode)
-    window.addAction(a1)
-    a2 = QtGui.QAction(window)
-    a2.setParent(window)
-    a2.setText("Glass toggle dock visibility")
-    a2.setObjectName("GlassToggleVisibility")
-    a2.setShortcut(QtGui.QKeySequence("Q, 2"))
-    a2.triggered.connect(setVisibility)
-    window.addAction(a2)
+def createActions ():
 
-
-def applyGlass ( widget , active ):
-
-    try:
-        if active:
-            widget.setWindowFlags(QtCore.Qt.FramelessWindowHint)
-        else:
-            widget.setWindowFlags(dock.windowFlags() & ~QtCore.
-                                  Qt.
-                                  FramelessWindowHint)
-    except:
-        pass
-
-    try:
-        widget.setAttribute(QtCore.Qt.WA_NoSystemBackground, active)
-    except:
-        pass
-
-    try:
-        widget.setAttribute(QtCore.Qt.WA_TranslucentBackground, active)
-    except:
-        pass
-
-    try:
-        if active:
-            widget.setStyleSheet("background:transparent; border:none; color:white;")
-        else:
-            widget.setStyleSheet("")
-    except:
-        pass
-
-    try:
-        widget.setAutoFillBackground(active)
-    except:
-        pass
-
-    try:
-        if active:
-            widget.setVerticalScrollBarPolicy((QtCore.Qt.ScrollBarAlwaysOff))
-        else:
-            widget.setVerticalScrollBarPolicy((QtCore.Qt.ScrollBarAsNeeded))
-    except:
-        pass
-
-    try:
-        if active:
-            widget.setHorizontalScrollBarPolicy((QtCore.Qt.ScrollBarAlwaysOff))
-        else:
-            widget.setHorizontalScrollBarPolicy((QtCore.Qt.ScrollBarAsNeeded))
-    except:
-        pass
-
-    try:
-        widget.setDocumentMode(active)
-    except:
-        pass
-
-    try:
-        widget.tabBar().setDrawBase(False)
-    except:
-        pass
+    action = QtGui.QAction(window)
     
-    try:
+    action.setParent(window)
+    action.setText('Glass toggle dock mode')
+    action.setObjectName('GlassToggleMode')
+    action.setShortcut(QtGui.QKeySequence('Q,1'))
+    
+    action.triggered.connect(toggleActive)
+    
+    window.addAction(action)
+    
+
+    action = QtGui.QAction(window)
+    
+    action.setObjectName('GlassToggleVisibility')
+    action.setShortcut(QtGui.QKeySequence('Q,2'))
+    action.setParent(window)
+    action.setText('Glass toggle dock visibility')
+    
+    action.triggered.connect(setVisibility)
+    
+    window.addAction(action)
+
+
+def applyGlass ( 
+    widget : QtWidgets.QWidget , 
+    active : bool
+):
+
+    widget.setAutoFillBackground(active)
+
+    if widget is QtWidgets.QTabWidget :
+        
+        widget.setDocumentMode(active)
+        widget.tabBar().setDrawBase(False)
+        
         if active:
             widget.header().hide()
         else:
             widget.header().show()
-    except:
-        pass
 
 
-def widgetList ( active ):
+    if widget is QtWidgets.QMdiSubWindow :
+        
+        widget.setAttribute(QtCore.Qt.WindowType.WindowTransparentForInput,active)
+        widget.setAttribute(QtCore.Qt.WindowType.NoTitleBarBackgroundHint,active)
+    
 
-    children = []
-    children.append(dock)
+    if widget is QtWidgets.QScrollBar :
+        
+        if active:
+            policy = QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        else:
+            policy = QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        
+        widget.setHorizontalScrollBarPolicy(policy)
+        widget.setVerticalScrollBarPolicy(policy)
+    
 
-    child = True
+    if active:
+        widget.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
+        widget.setStyleSheet('background:transparent;border:none;color:white;')
+    else:
+        widget.setWindowFlags(dock.windowFlags() & ~QtCore.Qt.WindowType.FramelessWindowHint)
+        widget.setStyleSheet('')
+    
 
-    while child:
-        child = False
-        for i in children:
-            if i.children():
-                for c in i.children():
-                    if c not in children:
-                        children.append(c)
-                        child = True
+def updateWidgets ( active ):
 
-    for child in children :
-        applyGlass(child,active)
+    widgets : list[ QtWidgets.QWidget ] = [ dock ]
+
+    hasMore = True
+
+    while hasMore:
+        
+        hasMore = False
+        
+        for widget in widgets:
+            
+            if not widget.children():
+                continue
+
+            for child in widget.children():
+                
+                if child in widgets:
+                    continue
+
+                if issubclass(type(child),QtWidgets.QWidget):
+                    widgets.append(child) # type: ignore
+                    hasMore = True
+
+    for widget in widgets :
+        applyGlass(widget,active)
 
 
-def updateMode ():
+def toggleActive ():
 
-    global mode
+    global active
 
     mdi = window.findChild(QtWidgets.QMdiArea)
 
-    if mode == 0:
+    active = not active
+
+    if active:
 
         dock.setParent(mdi)
         dock.setTitleBarWidget(title)
         
         title.hide()
-        
-        dock.show()
-        
-        widgetList(True)
-        
-        mode = 1
 
     else:
-        
+
         dock.setParent(window)
-        dock.setTitleBarWidget(None)
+        dock.setTitleBarWidget(None) # type: ignore
 
         window.addDockWidget(QtCore.Qt.DockWidgetArea.LeftDockWidgetArea,dock)
         
-        dock.show()
+    dock.show()
 
-        widgetList(False)
-        
-        mode = 0
+    updateWidgets(active)
 
     onResize()
 
@@ -192,7 +176,7 @@ def onResize ():
     if not mdi:
         return
 
-    if mode == 1:
+    if active:
 
         bar = mdi.findChild(QtWidgets.QTabBar)
 
@@ -230,7 +214,7 @@ def onStart ():
     createActions()
 
     if preferences.GetBool('glassAuto',1):
-        updateMode()
+        toggleActive()
 
     timer.timeout.connect(onResize)
     timer.start(2000)
@@ -244,6 +228,7 @@ def init ():
         
         preferences.SetBool('FirstRun',0)
 
+    global timer
 
     timer = QtCore.QTimer()
     timer.timeout.connect(onStart)
